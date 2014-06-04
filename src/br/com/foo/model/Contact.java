@@ -1,13 +1,16 @@
 package br.com.foo.model;
 
+import java.io.Serializable;
 import java.util.Calendar;
 
 /**
  * Created by moises on 5/31/14.
  */
-public class Contact {
+public class Contact implements Serializable{
 
-    private String firstName;
+	private static final long serialVersionUID = 1L;
+
+	private String firstName;
     private String lastName;
     private String street;
     private int postalCode;
@@ -15,17 +18,6 @@ public class Contact {
     private Calendar birthday;
 
     public Contact() {}
-
-    public Contact(String lastName, String firstName) {
-        this.lastName = lastName;
-        this.firstName = firstName;
-
-        // some initial dummy data
-        this.street = "some street";
-        this.postalCode = 1234;
-        this.city = "some city";
-        this.birthday = Calendar.getInstance();
-    }
 
     public String getFirstName() {
         return firstName;

@@ -1,6 +1,8 @@
-    package br.com.foo;
+package br.com.foo;
 
-    import br.com.foo.model.Contact;
+import java.io.IOException;
+import java.util.List;
+
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -8,111 +10,95 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.io.IOException;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
-import org.datafx.reader.RestSource;
-import org.datafx.reader.RestSourceBuilder;
+import br.com.foo.model.Contact;
 
-    /**
-     * Created by moises on 5/31/14.
-     */
-    public class FooApp extends Application{
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 
-        private Stage primaryStage;
-        private BorderPane foo;
+/**
+ * Created by moises on 5/31/14.
+ */
+public class FooApp extends Application {
 
-        @Override
-        public void start(Stage stage) throws Exception {
-            createContactsListFake();
-            primaryStage = stage;
-            primaryStage.setTitle("Contacts");
+	private Stage primaryStage;
+	private BorderPane foo;
 
-            try {
-                FXMLLoader loader = new FXMLLoader(FooApp.class.getResource("view/foo.fxml"));
-                foo = (BorderPane) loader.load();
-                Scene scene = new Scene(foo);
-                primaryStage.setScene(scene);
-                primaryStage.show();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+	@Override
+	public void start(Stage stage) throws Exception {
+		createContactsListFake();
+		primaryStage = stage;
+		primaryStage.setTitle("Contacts");
 
-            showContacts();
-        }
+		try {
+			FXMLLoader loader = new FXMLLoader(FooApp.class.getResource("view/foo.fxml"));
+			foo = (BorderPane) loader.load();
+			Scene scene = new Scene(foo);
+			primaryStage.setScene(scene);
+			primaryStage.show();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-        private void showContacts() {
-            try {
-                FXMLLoader loader = new FXMLLoader(FooApp.class.getResource("view/contacts.fxml"));
-                AnchorPane contactsPage = (AnchorPane) loader.load();
-                foo.setCenter(contactsPage);
+		showContacts();
+	}
 
-                ContactOverviewController controller = loader.getController();
-                controller.setFooApp(this);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+	private void showContacts() {
+		try {
+			FXMLLoader loader = new FXMLLoader(FooApp.class.getResource("view/contacts.fxml"));
+			AnchorPane contactsPage = (AnchorPane) loader.load();
+			foo.setCenter(contactsPage);
 
-        public static void main(String[] args) {
-            launch(args);
-        }
+			ContactOverviewController controller = loader.getController();
+			controller.setFooApp(this);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
-        public Stage getPrimaryStage() {
-            return primaryStage;
-        }
+	public static void main(String[] args) {
+		launch(args);
+	}
 
-        /* Test data */
-        private ObservableList<Contact> contactsFake;
+	public Stage getPrimaryStage() {
+		return primaryStage;
+	}
 
-        public ObservableList<Contact> getContactsFake() {
-            return contactsFake;
-        }
+	
+	
+	
+	
+	/* Test data */
+	private ObservableList<Contact> contactsFake;
 
-        public void createContactsListFake() {
-        	RestSource<Contact> restSource = RestSourceBuilder.create().build();
-        	
-        	
-            if (contactsFake == null) contactsFake = FXCollections.observableArrayList();
-            contactsFake.add(new Contact("Hans", "Muster"));
-            contactsFake.add(new Contact("Ruth", "Mueller"));
-            contactsFake.add(new Contact("Heinz", "Kurz"));
-            contactsFake.add(new Contact("Cornelia", "Meier"));
-            contactsFake.add(new Contact("Werner", "Meyer"));
-            contactsFake.add(new Contact("Lydia", "Kunz"));
-            contactsFake.add(new Contact("Anna", "Best"));
-            contactsFake.add(new Contact("Stefan", "Meier"));
-            contactsFake.add(new Contact("Martin", "Mueller"));
-        }
+	public ObservableList<Contact> getContactsFake() {
+		return contactsFake;
+	}
 
-        public boolean showContactEditDialog(Contact contact) {
-            try {
-                // Load the fxml file and create a new stage for the popup
-                FXMLLoader loader = new FXMLLoader(FooApp.class.getResource("view/PersonEditDialog.fxml"));
-                AnchorPane page = (AnchorPane) loader.load();
-                Stage dialogStage = new Stage();
-                dialogStage.setTitle("Edit Person");
-                dialogStage.initModality(Modality.WINDOW_MODAL);
-                dialogStage.initOwner(primaryStage);
-                Scene scene = new Scene(page);
-                dialogStage.setScene(scene);
+	public void createContactsListFake() throws IOException {
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		HttpGet httpGet = new HttpGet("http://192.168.25.46:8080/foo-web/api/contact");
+		httpGet.addHeader("accept", "application/json");
+		CloseableHttpResponse response = httpClient.execute(httpGet);
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+			List<Contact> contacts = mapper.readValue(EntityUtils.toString(response.getEntity()),
+					TypeFactory.defaultInstance().constructCollectionType(List.class, Contact.class));
+			if (contactsFake == null)
+				contactsFake = FXCollections.observableArrayList();
+			for (Contact c : contacts) {
+				contactsFake.add(c);
+			}
+		} finally {
+			response.close();
+		}
+	}
 
-                // Set the person into the controller
-                ContactEditController controller = loader.getController();
-                controller.setDialogStage(dialogStage);
-                controller.setPerson(contact);
-
-                // Show the dialog and wait until the user closes it
-                dialogStage.showAndWait();
-
-                return controller.isOkClicked();
-            } catch (IOException e) {
-                // Exception gets thrown if the fxml file could not be loaded
-                e.printStackTrace();
-                return false;
-            }
-        }
-
-    }
+}
